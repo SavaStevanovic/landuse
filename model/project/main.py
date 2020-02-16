@@ -20,7 +20,7 @@ def matplotlib_imshow(img, one_channel=False):
     if one_channel:
         img = img.mean(dim=0)
     img = img + 1.     # unnormalize
-    npimg = img.numpy()
+    npimg = img.to('cpu').numpy()
     if one_channel:
         plt.imshow(npimg, cmap="Greys")
     else:
@@ -33,7 +33,7 @@ def images_to_probs(net, images):
     '''
     output = net(images)
     # convert output probabilities to predicted class
-    _, preds_tensor = torch.max(output, 1)
+    _, preds_tensor = torch.max(output.to('cpu'), 1)
     preds = np.squeeze(preds_tensor.numpy())
     return preds, [F.softmax(el, dim=0)[i].item() for i, el in zip(preds, output)]
 
@@ -63,12 +63,12 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 data_transform = transforms.Compose([
-        transforms.RandomPerspective(),
+        # transforms.RandomPerspective(),
         transforms.RandomSizedCrop(128),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomGrayscale(),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomGrayscale(),
         transforms.ToTensor(),
-        transforms.RandomErasing(),
+        # transforms.RandomErasing(),
         transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1])
     ])
 
@@ -91,28 +91,29 @@ for i in range(0, len(trainset), skip):
     plt.imshow(sample['image'].permute(1, 2, 0))
 
     if i//skip == 3:
-        plt.show()
+        # plt.show()
         break
 
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=10)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=0)
 
 criterion = nn.CrossEntropyLoss()
 net = ResNet(22)
+net.cuda()
 optimizer = optim.Adam(net.parameters())
 
 writer = SummaryWriter(os.path.join('logs', str(datetime.now().time())))
 
 dataiter = iter(trainloader)
 data = dataiter.next()
-images, labels = data['image'], data['label']
+images, labels = data['image'].to('cuda'), data['label'].to('cuda')
 # create grid of images
 img_grid = utils.make_grid(images)
 
 # show images
-matplotlib_imshow(img_grid, one_channel=True)
+matplotlib_imshow(img_grid.to('cpu'), one_channel=True)
 
 # write to tensorboard
-writer.add_image('four_fashion_mnist_images', img_grid)
+writer.add_image('four_fashion_mnist_images', img_grid.to('cpu'))
 
 writer.add_graph(net, images)
 writer.close()
@@ -125,7 +126,7 @@ for epoch in range(10):  # loop over the dataset multiple times
     for i, data in enumerate(trainloader, 0):
 
         # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data['image'], data['label']
+        inputs, labels = data['image'].to('cuda'), data['label'].to('cuda')
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -151,3 +152,21 @@ for epoch in range(10):  # loop over the dataset multiple times
                             global_step=epoch * len(trainloader) + i)
             running_loss = 0.0
 print('Finished Training')
+
+
+correct = 0
+total = 0
+with torch.no_grad():
+    for data in trainloader:
+        images, labels = data['image'].to('cuda'), data['label'].to('cuda')
+        outputs = net(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        try:
+            correct += (predicted == labels).sum().item()
+        except expression as identifier:
+            pass
+            
+
+print('Accuracy of the network: %d %%' % (
+    100 * correct / total))

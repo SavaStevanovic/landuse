@@ -5,7 +5,15 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 
+
 class LandUseDataset(Dataset):
+
+    labels = ['agricultural', 'denseresidential', 'mediumresidential', 'sparseresidential'
+        ,'airplane', 'forest', 'mobilehomepark', 'storagetanks'
+        ,'baseballdiamond', 'freeway', 'overpass', 'tenniscourt'
+        ,'beach', 'golfcourse', 'parkinglot'
+        ,'buildings', 'harbor', 'river'
+        ,'chaparral', 'intersection', 'runway']
 
     def __init__(self, root_dir, transform=None):
         self.root_dir = root_dir
@@ -30,6 +38,6 @@ class LandUseDataset(Dataset):
         image = Image.open(image_path)
         if self.transform:
             image = self.transform(image)
-        sample  = {'image': image, 'label': label}
+        sample  = {'image': image, 'label': self.labels.index(label)}
 
         return sample

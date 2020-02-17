@@ -15,18 +15,9 @@ class LandUseDataset(Dataset):
         ,'buildings', 'harbor', 'river'
         ,'chaparral', 'intersection', 'runway']
 
-    def __init__(self, root_dir, transform=None):
-        self.root_dir = root_dir
+    def __init__(self, data, transform=None):
         self.transform = transform
-        self.data = self.create_dataset(root_dir)
-
-    def create_dataset(self, path):
-        data = []
-        for subdir, dirs, _ in os.walk(path):
-            for dir in dirs:
-                for img in os.listdir(os.path.join(subdir, dir)):
-                    data.append((os.path.join(subdir, dir, img), dir))
-        return np.array(data)
+        self.data = data
 
     def __len__(self):
         return len(self.data)

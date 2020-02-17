@@ -1,39 +1,23 @@
 from __future__ import print_function, division
 import pandas as pd
-from torchvision import transforms, utils
+from torchvision import utils
 import torch
-from data_loader.iterator import LandUseDataset
 import numpy as np
 from model.resnet import ResNet
-import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-import torch.nn as nn
 import os
 from model_fitting.evaluate import accuracy
 from model_fitting.train import fit
 from visualization.iterator_sample_ploter import display_iterator_sample
 from visualization.tensorboard_figure_ploter import matplotlib_imshow
+from data_loader.dataset_creator import DatasetCreator
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-
-torch.manual_seed(42)
-np.random.seed(42)
-
-data_transform = transforms.Compose([
-        # transforms.RandomPerspective(),
-        transforms.RandomSizedCrop(128),
-        # transforms.RandomHorizontalFlip(),
-        # transforms.RandomGrayscale(),
-        transforms.ToTensor(),
-        # transforms.RandomErasing(),
-        transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1])
-    ])
-
-trainset = LandUseDataset(root_dir='dataset', transform = data_transform)
-
+dataset_creator = DatasetCreator(root_dir='./dataset')
+trainset = dataset_creator.get_train_iterator()
 display_iterator_sample(trainset)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=0)
@@ -41,29 +25,23 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True,
 net = ResNet(22)
 net.cuda()
 
-writer = SummaryWriter(os.path.join('logs', str(datetime.now().time())))
+log_datatime = str(datetime.now().time())
+train_writer = SummaryWriter(os.path.join('logs', log_datatime, 'train'))
+validation_writer = SummaryWriter(os.path.join('logs', log_datatime, 'validation'))
 
-dataiter = iter(trainloader)
-data = dataiter.next()
-images, labels = data['image'].to('cuda'), data['label'].to('cuda')
-# create grid of images
-img_grid = utils.make_grid(images)
+validationset = dataset_creator.get_validation_iterator()
+validationloader = torch.utils.data.DataLoader(validationset, batch_size=32, shuffle=False, num_workers=0)
+best_acc = 0
+for epoch in range(100):
+    fit(net, trainloader, train_writer, trainset.labels, epoch=epoch, logging_perriod=10)
+    acc = accuracy(net, validationloader, validation_writer, epoch)
+    if acc>best_acc:
+        best_acc = acc
+        print('Saving model with accuracy: {}'.format(acc))
+        torch.save(net.state_dict(), os.path.join('checkpoints', 'checkpoints-{}.pth'.format(epoch)))
+    else:
+        print('Epoch {} accuracy: {}'.format(epoch, acc))
+print('Finished Training')
 
-# show images
-matplotlib_imshow(img_grid.to('cpu'), one_channel=True)
-
-# write to tensorboard
-writer.add_image('four_fashion_mnist_images', img_grid.to('cpu'))
-
-writer.add_graph(net, images)
-
-
-
-optimizer = optim.Adam(net.parameters())
-criterion = nn.CrossEntropyLoss()
-
-fit(net, trainloader, optimizer, criterion, writer, LandUseDataset.labels, epochs=10, logging_perriod=10)
-
-accuracy(net, trainloader)
-
-writer.close()
+train_writer.close()
+validation_writer.close()

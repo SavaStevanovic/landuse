@@ -1,6 +1,7 @@
 import torch
 
-def accuracy(net, testloader):
+def accuracy(net, testloader, writer, epoch=1):
+    net.eval()
     correct = 0
     total = 0
     with torch.no_grad():
@@ -9,11 +10,7 @@ def accuracy(net, testloader):
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            try:
-                correct += (predicted == labels).sum().item()
-            except expression as identifier:
-                pass
-
-
-    print('Accuracy of the network: %d %%' % (
-        100 * correct / total))
+            correct += (predicted == labels).sum().item()
+    acc = 100 * correct / total
+    writer.add_scalar('Validation accuracy', acc, epoch)
+    return acc

@@ -44,7 +44,7 @@ def fit(net, trainloader, validationloader, loss_writer, accuracy_writer, classe
         if val_acc>best_acc:
             best_acc = val_acc
             print('Saving model with accuracy: {}'.format(val_acc))
-            torch.save(net.state_dict(), os.path.join('checkpoints', 'checkpoints-{}.pth'.format(epoch)))
+            torch.save(net, os.path.join('checkpoints', 'checkpoints.pth'))
         else:
             print('Epoch {} accuracy: {}'.format(epoch, val_acc))
     print('Finished Training')

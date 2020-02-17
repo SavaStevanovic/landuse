@@ -1,8 +1,11 @@
 import torch.optim as optim
 import torch.nn as nn
 from visualization.tensorboard_figure_ploter import plot_classes_preds
+from model_fitting.evaluate import accuracy
+import torch
+import os
 
-def fit(net, trainloader, writer, classes, epoch=1, logging_perriod=10):
+def fit_epoch(net, trainloader, writer, classes, epoch=1):
     net.train()
     optimizer = optim.Adam(net.parameters())
     criterion = nn.CrossEntropyLoss(reduction='mean')
@@ -30,3 +33,18 @@ def fit(net, trainloader, writer, classes, epoch=1, logging_perriod=10):
     # ...log a Matplotlib Figure showing the model's predictions on a
     # random mini-batch
     writer.add_figure('predictions vs. actuals', plot_classes_preds(net, inputs, labels, classes), global_step=epoch)
+
+def fit(net, trainloader, validationloader, loss_writer, accuracy_writer, classes, epochs=1000):
+    best_acc = 0
+    for epoch in range(epochs):
+        fit_epoch(net, trainloader, loss_writer, classes, epoch=epoch)
+        train_acc = accuracy(net, trainloader, epoch)
+        val_acc = accuracy(net, validationloader, epoch)
+        accuracy_writer.add_scalars('Accuracy', {'train':train_acc, 'validation':val_acc}, epoch)
+        if val_acc>best_acc:
+            best_acc = val_acc
+            print('Saving model with accuracy: {}'.format(val_acc))
+            torch.save(net.state_dict(), os.path.join('checkpoints', 'checkpoints-{}.pth'.format(epoch)))
+        else:
+            print('Epoch {} accuracy: {}'.format(epoch, val_acc))
+    print('Finished Training')
